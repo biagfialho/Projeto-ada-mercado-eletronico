@@ -1,12 +1,12 @@
-import { TrendingUp, TrendingDown, Minus, HelpCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, HelpCircle, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Indicator } from '@/data/mockData';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { SparklineChart } from './SparklineChart';
 import { cn } from '@/lib/utils';
 
@@ -53,16 +53,28 @@ export function IndicatorCard({ indicator, index }: IndicatorCardProps) {
             <h3 className="text-sm font-medium text-muted-foreground">
               {indicator.shortName}
             </h3>
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <Popover>
+              <PopoverTrigger asChild>
                 <button className="text-muted-foreground/50 transition-colors hover:text-primary">
                   <HelpCircle className="h-3.5 w-3.5" />
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <p className="text-xs">{indicator.glossary}</p>
-              </TooltipContent>
-            </Tooltip>
+              </PopoverTrigger>
+              <PopoverContent side="top" className="w-80 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {indicator.name}
+                    </h4>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {indicator.glossary}
+                    </p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <TrendIcon className={cn('h-4 w-4', trendColor)} />
         </CardHeader>
