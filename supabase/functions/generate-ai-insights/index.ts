@@ -68,6 +68,43 @@ Restrições:
 - Não repetir insights redundantes
 - Quando relevante, indique o período aproximado do fenômeno`;
 
+// Valid indicator values for the database constraint
+const VALID_INDICATORS = ['ipca', 'selic', 'igpm', 'pib', 'dolar', 'balanca_comercial', 'desemprego'] as const;
+
+function normalizeIndicatorId(indicatorId: string): string {
+  const normalized = indicatorId.toLowerCase().trim();
+  
+  // Map common variations to valid values
+  const mappings: Record<string, string> = {
+    'selic': 'selic',
+    'ipca': 'ipca',
+    'igpm': 'igpm',
+    'igp-m': 'igpm',
+    'pib': 'pib',
+    'gdp': 'pib',
+    'dolar': 'dolar',
+    'dólar': 'dolar',
+    'usd': 'dolar',
+    'balanca_comercial': 'balanca_comercial',
+    'balança comercial': 'balanca_comercial',
+    'balanca': 'balanca_comercial',
+    'desemprego': 'desemprego',
+    'unemployment': 'desemprego',
+  };
+  
+  if (mappings[normalized]) {
+    return mappings[normalized];
+  }
+  
+  // Check if it's already a valid indicator
+  if (VALID_INDICATORS.includes(normalized as any)) {
+    return normalized;
+  }
+  
+  // Default to a general category or first valid indicator
+  return 'selic';
+}
+
 function prepareDataSummary(activeIndicators: IndicatorData[], period: string): string {
   return activeIndicators.map(ind => {
     const recentData = ind.historicalData.slice(-12);
@@ -86,7 +123,7 @@ function prepareDataSummary(activeIndicators: IndicatorData[], period: string): 
     const shortTermTrend = prevAvg !== 0 ? ((recentAvg - prevAvg) / prevAvg) * 100 : 0;
 
     return `
-**${ind.shortName} (${ind.name})**
+**${ind.shortName} (${ind.name})** [id: ${ind.id}]
 - Valor atual: ${ind.value.toFixed(2)} ${ind.unit}
 - Variação mensal: ${ind.monthlyChange.toFixed(2)}%
 - Variação no período (${period}): ${periodChange.toFixed(2)}%
@@ -210,16 +247,25 @@ Gere de 3 a 6 insights relevantes baseados nesses dados.`;
       .eq('user_id', user.id)
       .lt('reference_date', today);
 
-    // Prepare insights for database insertion
-    const insightsToSave = (parsedInsights.insights || []).map((insight: any) => ({
-      user_id: user.id,
-      indicator: insight.indicators?.[0] || activeIndicators[0]?.id || 'general',
-      title: insight.title || insight.message.substring(0, 50),
-      description: insight.message,
-      severity: insight.severity || 'info',
-      insight_type: insight.type || 'trend',
-      reference_date: today,
-    }));
+    // Prepare insights for database insertion with normalized indicator IDs
+    const insightsToSave = (parsedInsights.insights || []).map((insight: any) => {
+      // Get the raw indicator from AI response
+      const rawIndicator = insight.indicators?.[0] || activeIndicators[0]?.id || 'selic';
+      // Normalize to valid database value
+      const normalizedIndicator = normalizeIndicatorId(rawIndicator);
+      
+      console.log(`Mapping indicator: "${rawIndicator}" -> "${normalizedIndicator}"`);
+      
+      return {
+        user_id: user.id,
+        indicator: normalizedIndicator,
+        title: (insight.title || insight.message.substring(0, 50)).substring(0, 100),
+        description: insight.message,
+        severity: ['info', 'warning', 'success'].includes(insight.severity) ? insight.severity : 'info',
+        insight_type: ['trend', 'alert', 'correlation'].includes(insight.type) ? insight.type : 'trend',
+        reference_date: today,
+      };
+    });
 
     // Insert new insights into database
     if (insightsToSave.length > 0) {
