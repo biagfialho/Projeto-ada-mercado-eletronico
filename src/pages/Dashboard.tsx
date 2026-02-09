@@ -242,15 +242,15 @@ export default function Dashboard() {
         )}
 
         {/* Charts Section */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
+          <div className="lg:col-span-2 min-w-0">
             <HistoricalChart 
               indicators={processedIndicators}
               period={period}
               onVisibleIndicatorsChange={handleVisibleIndicatorsChange}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <InsightsPanel 
               insights={aiInsights || []} 
               isLoading={isLoadingInsights}
