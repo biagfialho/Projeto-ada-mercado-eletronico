@@ -222,13 +222,13 @@ export default function Dashboard() {
 
         {/* Indicator Cards Grid */}
         {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...Array(7)].map((_, i) => (
               <Skeleton key={i} className="h-[180px] rounded-lg" />
             ))}
           </div>
         ) : processedIndicators.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {processedIndicators.map((indicator, index) => (
               <IndicatorCard key={indicator.id} indicator={indicator} index={index} />
             ))}
