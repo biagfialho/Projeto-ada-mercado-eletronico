@@ -102,7 +102,7 @@ export function CorrelationMatrix({ indicators }: CorrelationMatrixProps) {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <div className="inline-block min-w-full">
               <div 
                 className="grid gap-1" 

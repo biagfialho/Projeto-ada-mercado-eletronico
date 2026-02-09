@@ -35,7 +35,7 @@ export function NewsDetailDialog({ news, open, onOpenChange }: NewsDetailDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
+      <DialogContent className="max-w-2xl max-h-[85vh] w-[95vw] sm:w-full mx-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="outline" className={categoryColors[news.category]}>

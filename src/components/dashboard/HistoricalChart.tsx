@@ -251,7 +251,7 @@ export function HistoricalChart({ indicators, period, onVisibleIndicatorsChange 
         </CardHeader>
 
         <CardContent>
-          <div className="h-96">
+          <div className="h-64 sm:h-80 lg:h-96">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={mergedData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
