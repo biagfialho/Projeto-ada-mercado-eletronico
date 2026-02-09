@@ -211,12 +211,12 @@ export default function Dashboard() {
               {isFetching ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="hidden xs:inline">Recarregar página</span>
+                  Recarregar página
                 </>
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4" />
-                  <span className="hidden xs:inline">Recarregar dados</span>
+                  Recarregar dados
                 </>
               )}
             </Button>
