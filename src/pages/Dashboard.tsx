@@ -7,6 +7,7 @@ import { HistoricalChart } from '@/components/dashboard/HistoricalChart';
 import { CorrelationMatrix } from '@/components/dashboard/CorrelationMatrix';
 import { useIndicators, IndicatorType } from '@/hooks/useIndicators';
 import { useAIInsights } from '@/hooks/useAIInsights';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { CalendarDays, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TestReportButton } from '@/components/dashboard/TestReportButton';
@@ -79,6 +80,7 @@ export default function Dashboard() {
   const [visibleIndicators, setVisibleIndicators] = useState<string[]>([]);
   const { data: rawIndicators, isLoading, refetch, isFetching } = useIndicators(period);
   const queryClient = useQueryClient();
+  const { selectedIndicators } = useUserPreferences();
 
   const today = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
@@ -234,9 +236,11 @@ export default function Dashboard() {
           </div>
         ) : processedIndicators.length > 0 ? (
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {processedIndicators.map((indicator, index) => (
-              <IndicatorCard key={indicator.id} indicator={indicator} index={index} />
-            ))}
+            {processedIndicators
+              .filter((ind) => selectedIndicators.includes(ind.id as IndicatorType))
+              .map((indicator, index) => (
+                <IndicatorCard key={indicator.id} indicator={indicator} index={index} />
+              ))}
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
