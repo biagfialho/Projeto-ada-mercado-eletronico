@@ -143,8 +143,8 @@ export default function Dashboard() {
     data: aiInsights, 
     isLoading: isLoadingInsights,
     isFetching: isFetchingInsights,
-    refetch: refetchInsights,
     error: insightsError,
+    generateInsights,
   } = useAIInsights({
     indicators: processedIndicators,
     visibleIndicators: visibleIndicators.length > 0 ? visibleIndicators : undefined,
@@ -167,10 +167,12 @@ export default function Dashboard() {
     refetch();
   };
 
-  const handleRefreshInsights = () => {
-    // Invalidate to force a fresh fetch
-    queryClient.invalidateQueries({ queryKey: ['ai-insights'] });
-    refetchInsights();
+  const handleRefreshInsights = async () => {
+    try {
+      await generateInsights();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao gerar insights');
+    }
   };
 
   return (

@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCallback } from 'react';
 
 export interface AIInsight {
   id: string;
@@ -30,62 +31,81 @@ interface UseAIInsightsParams {
   enabled?: boolean;
 }
 
-export function useAIInsights({ 
-  indicators, 
-  visibleIndicators, 
-  period, 
-  enabled = true 
+async function fetchSavedInsights(userId: string): Promise<AIInsight[]> {
+  const { data, error } = await supabase
+    .from('generated_insights')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  if (error) {
+    console.error('Error loading saved insights:', error);
+    return [];
+  }
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    message: row.description,
+    type: (row.insight_type as AIInsight['type']) || 'trend',
+    severity: (row.severity as AIInsight['severity']) || 'info',
+    indicatorId: row.indicator,
+    date: row.reference_date,
+  }));
+}
+
+export function useAIInsights({
+  indicators,
+  visibleIndicators,
+  period,
+  enabled = true,
 }: UseAIInsightsParams) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  // Create a stable key based on visible indicators
-  const visibleKey = visibleIndicators?.sort().join(',') || 'all';
-
-  return useQuery({
-    queryKey: ['ai-insights', period, visibleKey, indicators.length],
-    queryFn: async (): Promise<AIInsight[]> => {
-      if (!user || indicators.length === 0) return [];
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-
-      if (!accessToken) {
-        console.error('No access token available');
-        return [];
-      }
-
-      const response = await supabase.functions.invoke('generate-ai-insights', {
-        body: {
-          indicators,
-          visibleIndicators,
-          period,
-        },
-      });
-
-      if (response.error) {
-        try {
-          const errorBody = typeof response.error === 'object' && 'context' in response.error
-            ? await (response.error as any).context?.json?.()
-            : null;
-          const msg = errorBody?.error || response.error.message || 'Failed to generate insights';
-          console.error('Error generating AI insights:', msg);
-          throw new Error(msg);
-        } catch (parseErr) {
-          if (parseErr instanceof Error && parseErr.message !== 'Failed to generate insights') {
-            throw parseErr;
-          }
-          console.error('Error generating AI insights:', response.error);
-          throw new Error(response.error.message || 'Failed to generate insights');
-        }
-      }
-
-      return response.data?.insights || [];
-    },
-    enabled: enabled && !!user && indicators.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 min cache to avoid hitting rate limits
+  // Load saved insights from DB
+  const query = useQuery({
+    queryKey: ['ai-insights', user?.id],
+    queryFn: () => fetchSavedInsights(user!.id),
+    enabled: enabled && !!user,
+    staleTime: Infinity, // only refresh manually
     gcTime: 10 * 60 * 1000,
-    retry: false,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnMount: true,
   });
+
+  // Generate new insights via edge function and refresh from DB
+  const generateInsights = useCallback(async () => {
+    if (!user || indicators.length === 0) return;
+
+    const response = await supabase.functions.invoke('generate-ai-insights', {
+      body: { indicators, visibleIndicators, period },
+    });
+
+    if (response.error) {
+      try {
+        const errorBody = typeof response.error === 'object' && 'context' in response.error
+          ? await (response.error as any).context?.json?.()
+          : null;
+        const msg = errorBody?.error || response.error.message || 'Falha ao gerar insights';
+        throw new Error(msg);
+      } catch (parseErr) {
+        if (parseErr instanceof Error && parseErr.message !== 'Falha ao gerar insights') {
+          throw parseErr;
+        }
+        throw new Error(response.error.message || 'Falha ao gerar insights');
+      }
+    }
+
+    // Invalidate to reload from DB
+    queryClient.invalidateQueries({ queryKey: ['ai-insights', user.id] });
+  }, [user, indicators, visibleIndicators, period, queryClient]);
+
+  return {
+    data: query.data || [],
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+    generateInsights,
+  };
 }
