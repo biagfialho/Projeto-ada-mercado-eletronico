@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { IndicatorCard } from '@/components/dashboard/IndicatorCard';
@@ -153,11 +153,11 @@ export default function Dashboard() {
   });
 
   // Show toast for AI insight errors (402, 429, etc.)
-  const insightsErrorMsg = insightsError?.message;
-  if (insightsErrorMsg) {
-    // Use a stable key to avoid duplicate toasts
-    toast.error(insightsErrorMsg, { id: 'ai-insights-error' });
-  }
+  useEffect(() => {
+    if (insightsError?.message) {
+      toast.error(insightsError.message, { id: 'ai-insights-error' });
+    }
+  }, [insightsError?.message]);
 
   const handleVisibleIndicatorsChange = useCallback((ids: string[]) => {
     setVisibleIndicators(ids);
