@@ -174,43 +174,45 @@ Gere exatamente 3 insights relevantes baseados nesses dados. Responda APENAS com
   ]
 }`;
 
-    // Use Google Gemini API directly
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY not configured");
+    // Use OpenAI API
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY not configured");
     }
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const geminiBody = JSON.stringify({
-      contents: [
-        { role: "user", parts: [{ text: SYSTEM_PROMPT + "\n\n" + userMessage }] },
+    const openaiUrl = "https://api.openai.com/v1/responses";
+    const openaiBody = JSON.stringify({
+      model: "gpt-4o-mini",
+      input: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
       ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2048,
-      },
+      temperature: 0.7,
+      max_output_tokens: 2048,
     });
 
     // Retry with exponential backoff respecting Retry-After header
     let response: Response | null = null;
     const maxRetries = 5;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      response = await fetch(geminiUrl, {
+      response = await fetch(openaiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: geminiBody,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: openaiBody,
       });
 
       if (response.status !== 429 || attempt === maxRetries) break;
 
-      // Respect Retry-After header if present
       const retryAfter = response.headers.get('Retry-After');
       let delay: number;
       if (retryAfter) {
         const parsed = parseInt(retryAfter, 10);
         delay = !isNaN(parsed) ? parsed * 1000 : Math.pow(2, attempt + 2) * 1000;
       } else {
-        delay = Math.pow(2, attempt + 2) * 1000 + Math.random() * 1000; // 4s, 8s, 16s, 32s, 64s
+        delay = Math.pow(2, attempt + 2) * 1000 + Math.random() * 1000;
       }
       console.log(`Rate limited (429), retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -219,17 +221,17 @@ Gere exatamente 3 insights relevantes baseados nesses dados. Responda APENAS com
     if (!response!.ok) {
       if (response!.status === 429) {
         return new Response(
-          JSON.stringify({ error: "A API do Gemini está temporariamente indisponível por excesso de uso. Aguarde 1-2 minutos e tente novamente.", insights: [] }),
+          JSON.stringify({ error: "A API da OpenAI está temporariamente indisponível por excesso de uso. Aguarde 1-2 minutos e tente novamente.", insights: [] }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const errText = await response!.text();
-      console.error("Gemini API error:", response!.status, errText);
-      throw new Error(`Gemini API error: ${response!.status}`);
+      console.error("OpenAI API error:", response!.status, errText);
+      throw new Error(`OpenAI API error: ${response!.status}`);
     }
 
-    const aiResponse = await response.json();
-    const content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
+    const aiResponse = await response!.json();
+    const content = aiResponse.output?.[0]?.content?.[0]?.text;
 
     if (!content) {
       throw new Error("No content in AI response");
