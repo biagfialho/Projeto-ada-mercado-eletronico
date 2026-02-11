@@ -280,8 +280,8 @@ export default function Dashboard() {
         </div>
 
         {/* Correlation Matrix */}
-        {processedIndicators.length > 1 && (
-          <CorrelationMatrix indicators={processedIndicators} />
+        {processedIndicators.filter((ind) => selectedIndicators.includes(ind.id as IndicatorType)).length > 1 && (
+          <CorrelationMatrix indicators={processedIndicators.filter((ind) => selectedIndicators.includes(ind.id as IndicatorType))} />
         )}
       </div>
     </MainLayout>
