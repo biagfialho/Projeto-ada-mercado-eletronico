@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 export interface AIInsight {
   id: string;
@@ -62,6 +62,7 @@ export function useAIInsights({
 }: UseAIInsightsParams) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isGeneratingRef = useRef(false);
 
   // Load saved insights from DB
   const query = useQuery({
@@ -78,27 +79,38 @@ export function useAIInsights({
   const generateInsights = useCallback(async () => {
     if (!user || indicators.length === 0) return;
 
-    const response = await supabase.functions.invoke('generate-ai-insights', {
-      body: { indicators, visibleIndicators, period },
-    });
-
-    if (response.error) {
-      try {
-        const errorBody = typeof response.error === 'object' && 'context' in response.error
-          ? await (response.error as any).context?.json?.()
-          : null;
-        const msg = errorBody?.error || response.error.message || 'Falha ao gerar insights';
-        throw new Error(msg);
-      } catch (parseErr) {
-        if (parseErr instanceof Error && parseErr.message !== 'Falha ao gerar insights') {
-          throw parseErr;
-        }
-        throw new Error(response.error.message || 'Falha ao gerar insights');
-      }
+    // Prevent concurrent calls
+    if (isGeneratingRef.current) {
+      console.log('Insight generation already in progress, skipping');
+      return;
     }
 
-    // Invalidate to reload from DB
-    queryClient.invalidateQueries({ queryKey: ['ai-insights', user.id] });
+    isGeneratingRef.current = true;
+    try {
+      const response = await supabase.functions.invoke('generate-ai-insights', {
+        body: { indicators, visibleIndicators, period },
+      });
+
+      if (response.error) {
+        try {
+          const errorBody = typeof response.error === 'object' && 'context' in response.error
+            ? await (response.error as any).context?.json?.()
+            : null;
+          const msg = errorBody?.error || response.error.message || 'Falha ao gerar insights';
+          throw new Error(msg);
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message !== 'Falha ao gerar insights') {
+            throw parseErr;
+          }
+          throw new Error(response.error.message || 'Falha ao gerar insights');
+        }
+      }
+
+      // Invalidate to reload from DB
+      queryClient.invalidateQueries({ queryKey: ['ai-insights', user.id] });
+    } finally {
+      isGeneratingRef.current = false;
+    }
   }, [user, indicators, visibleIndicators, period, queryClient]);
 
   return {
