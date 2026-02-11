@@ -191,9 +191,9 @@ Gere exatamente 3 insights relevantes baseados nesses dados. Responda APENAS com
       },
     });
 
-    // Retry with exponential backoff for rate limits
+    // Retry with exponential backoff respecting Retry-After header
     let response: Response | null = null;
-    const maxRetries = 3;
+    const maxRetries = 5;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       response = await fetch(geminiUrl, {
         method: "POST",
@@ -203,15 +203,23 @@ Gere exatamente 3 insights relevantes baseados nesses dados. Responda APENAS com
 
       if (response.status !== 429 || attempt === maxRetries) break;
 
-      const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
-      console.log(`Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      // Respect Retry-After header if present
+      const retryAfter = response.headers.get('Retry-After');
+      let delay: number;
+      if (retryAfter) {
+        const parsed = parseInt(retryAfter, 10);
+        delay = !isNaN(parsed) ? parsed * 1000 : Math.pow(2, attempt + 2) * 1000;
+      } else {
+        delay = Math.pow(2, attempt + 2) * 1000 + Math.random() * 1000; // 4s, 8s, 16s, 32s, 64s
+      }
+      console.log(`Rate limited (429), retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
     if (!response!.ok) {
       if (response!.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Limite de requisições excedido após múltiplas tentativas. Tente novamente em alguns minutos.", insights: [] }),
+          JSON.stringify({ error: "A API do Gemini está temporariamente indisponível por excesso de uso. Aguarde 1-2 minutos e tente novamente.", insights: [] }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
