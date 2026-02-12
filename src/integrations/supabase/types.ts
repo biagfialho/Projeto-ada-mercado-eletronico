@@ -41,6 +41,36 @@ export type Database = {
         }
         Relationships: []
       }
+      economic_insights: {
+        Row: {
+          description: string | null
+          id: number
+          indicator: string | null
+          insight_type: string | null
+          reference_date: string | null
+          severity: string | null
+          title: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: number
+          indicator?: string | null
+          insight_type?: string | null
+          reference_date?: string | null
+          severity?: string | null
+          title?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: number
+          indicator?: string | null
+          insight_type?: string | null
+          reference_date?: string | null
+          severity?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       economic_news: {
         Row: {
           education_analysis: string | null
