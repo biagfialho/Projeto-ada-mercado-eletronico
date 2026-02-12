@@ -146,10 +146,7 @@ export default function Dashboard() {
     error: insightsError,
     generateInsights,
   } = useAIInsights({
-    indicators: processedIndicators,
-    visibleIndicators: visibleIndicators.length > 0 ? visibleIndicators : undefined,
-    period: '24M',
-    enabled: processedIndicators.length > 0,
+    enabled: true,
   });
 
   // Show toast for AI insight errors (402, 429, etc.)
