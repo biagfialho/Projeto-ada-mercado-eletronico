@@ -29,9 +29,9 @@ const NotFound = () => {
         </p>
         
         <Button asChild>
-          <Link to="/">
+          <Link to="/analise">
             <Home className="mr-2 h-4 w-4" />
-            Voltar ao Dashboard
+            Voltar à Análise
           </Link>
         </Button>
       </motion.div>
