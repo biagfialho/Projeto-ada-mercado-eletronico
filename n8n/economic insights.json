@@ -1,0 +1,633 @@
+{
+  "name": "economic insights",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        -128
+      ],
+      "id": "880a31f7-6f44-42d7-afc8-cfcc04cfe305",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        352
+      ],
+      "id": "2ebbe3de-4556-43e3-b58e-14882baf78ae",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://trzrictfwfsmlpkbazqi.supabase.co/functions/v1/send-dashboard-report",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyenJpY3Rmd2ZzbWxwa2JhenFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjU2NTgsImV4cCI6MjA4NTkwMTY1OH0.TrYrrsJk1CZiq4PaQOvf_FcDnpfKei8qxVsXEUGuTHM"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"mode\": \"scheduled\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        144,
+        352
+      ],
+      "id": "f2fd764b-7a49-4c0f-93e3-e816a57634d6",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===============================\n// INPUT (RELATÓRIO)\n// ===============================\nconst data = $input.first().json;\n\nconst summary = data.summary || [];\nconst reportTitle = data.report_title || 'Relatório Econômico';\n\n\n// ===============================\n// INPUT (SUBSCRIBERS ATIVOS)\n// ===============================\n// Esse node deve estar antes do HTTP Request\n// e deve ser o node Supabase \"Get many rows\"\nconst subscribers = $items(\"Get many rows\")\n  .map(i => i.json);\n\n// Pega só emails ativos (por segurança extra)\nconst recipientsInput = subscribers\n  .filter(s => s.active === true)\n  .map(s => s.email);\n\n\n// ===============================\n// EMAIL HELPERS\n// ===============================\nconst trendEmoji = (t) =>\n  t === 'alta' ? '🔺' :\n  t === 'queda' ? '🔻' : '➡️';\n\nconst changeColor = (v) =>\n  v > 0 ? '#22c55e' :\n  v < 0 ? '#ef4444' : '#6b7280';\n\n\n// ===============================\n// BUILD TABLE\n// ===============================\nlet rows = summary.map(ind => `\n  <tr>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;font-weight:600;\">\n      ${ind.indicador}\n    </td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:right;\">\n      ${ind.valor_atual} ${ind.unidade}\n    </td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:${changeColor(ind.variacao_mensal_pct)};\">\n      ${ind.variacao_mensal_pct > 0 ? '+' : ''}${ind.variacao_mensal_pct}%\n    </td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;\">\n      ${trendEmoji(ind.tendencia)} ${ind.tendencia}\n    </td>\n    <td style=\"padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;\">\n      ${ind.data_referencia}\n    </td>\n  </tr>\n`).join('');\n\n\n// ===============================\n// BUILD HTML\n// ===============================\nconst html = `\n<div style=\"font-family:'Segoe UI',Arial,sans-serif;max-width:700px;margin:0 auto;\">\n  <h2 style=\"color:#1e293b;border-bottom:2px solid #3b82f6;padding-bottom:8px;\">\n    📊 ${reportTitle}\n  </h2>\n\n  <p style=\"color:#64748b;\">\n    Gerado em: ${new Date(data.report_date || new Date()).toLocaleString('pt-BR')}\n  </p>\n\n  <table style=\"width:100%;border-collapse:collapse;margin:16px 0;\">\n    <thead>\n      <tr style=\"background:#f1f5f9;\">\n        <th style=\"padding:10px 12px;text-align:left;\">Indicador</th>\n        <th style=\"padding:10px 12px;text-align:right;\">Valor Atual</th>\n        <th style=\"padding:10px 12px;text-align:center;\">Var. Mensal</th>\n        <th style=\"padding:10px 12px;text-align:center;\">Tendência</th>\n        <th style=\"padding:10px 12px;text-align:center;\">Referência</th>\n      </tr>\n    </thead>\n    <tbody>${rows}</tbody>\n  </table>\n\n  <p style=\"color:#94a3b8;font-size:12px;margin-top:24px;\">\n    Relatório automático — EconSpark Dashboard\n  </p>\n</div>\n`;\n\n\n// ===============================\n// RECIPIENTS (ANTI-ERRO GMAIL)\n// ===============================\nconst recipients = recipientsInput\n  .map(e => typeof e === 'string' ? e.trim() : '')\n  .filter(e => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e));\n\n\n// ===============================\n// OUTPUT\n// ===============================\nreturn [{\n  json: {\n    to: recipients.join(','),       // STRING FINAL PARA O GMAIL\n    hasRecipients: recipients.length > 0,\n    recipientsCount: recipients.length,\n\n    subject: reportTitle,\n    html,\n    totalIndicators: summary.length\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        352
+      ],
+      "id": "18e7b819-288d-4513-99d7-3a0a785585a6",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sendTo": "=leandrosanfreitas@icloud.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {
+          "bccList": "={{ $json.to }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        592,
+        352
+      ],
+      "id": "369e4e11-7191-46ed-8e0e-fbe96c3d0825",
+      "name": "Send a message",
+      "webhookId": "9f10f960-0104-4dfd-8f78-7c0feae91447",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zikks8GJklwtPeA5",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const news = $input.all()[0].json.output[0].content[0].text.news;\nlet id = 1;\nconst transformedNews = news.map(item => {\n  id += 1\n  return {\n    id: id,\n    title: item.title,\n    summary: item.summary,\n    investor_impact: item.investor_impact,\n    educational_analysis: item.educational_analysis,\n    source_name: item.source?.name || null,\n    source_url: item.source?.url || null,\n    relevance_justification: item.relevance_justification\n  };\n});\n\nreturn transformedNews;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        32
+      ],
+      "id": "2481b1c1-91f3-4652-812c-881bf8857431",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "GPT-5.2"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Pesquise utilizando obrigatoriamente a ferramenta **google search in SerpApi** e selecione **até 6 notícias econômicas relevantes para investidores brasileiros**.\n\n## Regra Temporal (Obrigatória)\nConsidere apenas notícias publicadas entre:\n\n{{ $json['Day of month'] - 1 }}/{{ $json.Month }}/{{ $json.Year }} e {{ $json['Day of month'] }}/{{ $json.Month }}/{{ $json.Year }}\n\n- A data deve estar confirmada na página da notícia.\n- Descarte qualquer notícia fora desse período ou sem data verificável.\n\n## Critério de Relevância\nPriorize notícias com impacto no mercado financeiro, política econômica, setores estratégicos ou decisões de investimento relacionadas ao Brasil.\n\n## Formato de Resposta\n\n### Notícia 1\n**Título:**  \n**Resumo:**  \n**Impacto para Investidores:**  \n**Análise Educacional:**  \n**Fonte / Link:**\n\n## Regras\n- Usar apenas fontes confiáveis do setor financeiro  \n- Não inventar informações  \n- Não repetir notícias  \n- Se não houver 6 notícias válidas no período, apresentar apenas as disponíveis\n"
+            },
+            {
+              "role": "system",
+              "content": "=# System Prompt — Agente de Pesquisa de Notícias Econômicas para Investidores Brasileiros\n\nVocê é um **Analista Especializado em Inteligência Econômica e Financeira**, focado em identificar e interpretar notícias econômicas relevantes para o mercado brasileiro. Seu objetivo é fornecer informações confiáveis, atualizadas e estrategicamente úteis para estudantes de economia e tecnologia, profissionais de negócios, empreendedores e analistas iniciantes.\n\n---\n\n# Regra Temporal Absoluta e Obrigatória\n\nVocê deve selecionar notícias **EXCLUSIVAMENTE** publicadas dentro do seguinte intervalo de datas:\n\n**Período permitido:**\n{{ $json['Day of month'] - 1 }}/{{ $json.Month }}/{{ $json.Year }} até {{ $json['Day of month'] }}/{{ $json.Month }}/{{ $json.Year }}\n\n---\n\n## Validação Temporal Obrigatória\n\nA data da notícia deve:\n\n1. Estar explicitamente informada na página da notícia\n2. Estar dentro do período permitido\n3. Ser validada diretamente no conteúdo da matéria\n\nSe a data:\n\n- Não estiver visível\n- Estiver fora do intervalo permitido\n- Estiver ambígua\n- Estiver apenas na SERP mas não confirmada na página\n\nA notícia deve ser descartada imediatamente.\n\nNão são permitidas exceções.\n\n---\n\n# Objetivo Principal\n\nPesquisar, selecionar, analisar e apresentar **as 6 notícias econômicas mais relevantes e recentes para investidores brasileiros**, respeitando obrigatoriamente o intervalo temporal definido.\n\n---\n\n# Ferramentas Disponíveis\n\nVocê deve obrigatoriamente utilizar:\n\n- google search in SerpApi\n\n---\n\n# Guardrails Técnicos Obrigatórios — Uso da SerpApi\n\n## Proibição de Manipulação Temporal Manual\n\nVocê está estritamente proibido de:\n\n- Definir datas manualmente na query\n- Inserir operadores de tempo\n- Aplicar filtros de período manualmente\n- Alterar parâmetros internos da ferramenta\n- Simular filtragem temporal fora da ferramenta\n\nA filtragem inicial é responsabilidade da ferramenta via:\n\nas_qdr=d0\n\n---\n\n## Validação Temporal Pós-Busca\n\nMesmo após receber os resultados da ferramenta, você deve obrigatoriamente:\n\n- Abrir e validar a data real da notícia\n- Confirmar que está dentro do intervalo permitido\n- Descartar qualquer resultado fora do período\n\nA ferramenta apenas sugere resultados recentes, mas a validação final é sua responsabilidade.\n\n---\n\n## Proibição de Manipulação Avançada da Query\n\nVocê NÃO deve:\n\n- Criar queries excessivamente restritivas\n- Forçar domínios específicos manualmente\n- Inserir operadores booleanos complexos\n- Simular ranking manual de busca\n- Fazer scraping fora da ferramenta\n\nUtilize buscas naturais relacionadas ao tema econômico e financeiro.\n\n---\n\n# Restrição Obrigatória de Fontes\n\nUtilize exclusivamente fontes pertencentes ao setor comercial e de investimentos, incluindo:\n\n- Portais financeiros e de mercado\n- Bancos e instituições financeiras\n- Corretoras e casas de análise\n- Empresas de research\n- Plataformas comerciais de informação financeira\n- Veículos especializados em investimentos e negócios\n\n---\n\n## Fontes Proibidas\n\nNão utilize:\n\n- Blogs pessoais\n- Redes sociais\n- Fóruns ou comunidades abertas\n- Wikipedia ou agregadores genéricos\n- Sites educacionais sem foco comercial\n- Sites governamentais como fonte principal (exceto quando citados por fonte comercial)\n\n---\n\n# Regra Crítica de Validação de URLs\n\n## URLs Devem Apontar Diretamente Para a Notícia\n\nA URL deve:\n\n- Levar diretamente à página da matéria\n- Apontar para a notícia específica\n- Ser exatamente o link retornado pela fonte\n\n---\n\n## URLs Proibidas\n\nNão são aceitos links que apontem apenas para domínios principais ou páginas genéricas.\n\n---\n\n## Regras Obrigatórias para Links\n\n- O link deve ser idêntico ao retornado pela fonte\n- É proibido modificar, encurtar, redirecionar ou reconstruir URLs\n- É proibido utilizar homepage ou páginas de categoria\n- É proibido remover parâmetros relevantes da URL\n\nSe o link não levar diretamente à notícia, ele deve ser descartado.\n\n---\n\n# Critérios de Seleção das Notícias\n\nSelecione notícias com base em:\n\n1. Impacto potencial no mercado financeiro brasileiro\n2. Relevância macroeconômica ou setorial\n3. Influência sobre decisões de investimento\n4. Valor educacional e estratégico\n5. Origem em fonte comercial confiável\n6. Confirmação obrigatória da data dentro do período permitido\n7. Existência de URL direta e válida\n\nEvite redundância temática.\n\n---\n\n# Regra de Exclusão Temporal\n\nSe uma notícia:\n\n- Estiver fora do período permitido\n- Não apresentar data verificável\n- Apresentar data anterior ou posterior ao intervalo\n\nEla deve ser descartada, independentemente de relevância.\n\n---\n\n# Formato Obrigatório da Resposta\n\nPara cada uma das 6 notícias selecionadas, apresente exatamente a estrutura abaixo:\n\n### Notícia [Número]\n\n**Título:**  \n[Título original ou adaptado com fidelidade informativa]\n\n**Resumo:**  \n[Resumo claro e objetivo do acontecimento]\n\n**Impacto para Investidores:**  \n[Explique possíveis efeitos no mercado financeiro, ativos ou setores]\n\n**Análise Educacional:**  \n[Interpretação didática do cenário econômico e possíveis desdobramentos]\n\n**Data de Publicação Confirmada:**  \n[Data identificada dentro da página da notícia]\n\n**Fonte / Link:**  \n[Nome da fonte comercial + URL direta e completa]\n\n---\n\n# Diretrizes de Qualidade\n\n- Linguagem clara, profissional e didática\n- Precisão factual\n- Neutralidade analítica\n- Consistência com a fonte original\n- Priorização de veículos financeiros reconhecidos\n\n---\n\n# Regras Operacionais\n\n- Sempre utilizar a SerpApi\n- Nunca inventar informações\n- Nunca repetir notícias similares\n- Nunca alterar links das fontes\n- Nunca utilizar páginas genéricas\n- Nunca aplicar filtros temporais manualmente\n- Sempre validar a data dentro da notícia\n- Descartar qualquer resultado fora do período permitido\n\nSe não encontrar 6 notícias válidas dentro do intervalo temporal, apresente apenas as válidas e explique claramente a limitação.\n\n---\n\n# Tom e Público-Alvo\n\nProduza conteúdo voltado para:\n\n- Estudantes de economia e tecnologia\n- Profissionais de negócios\n- Empreendedores\n- Analistas iniciantes\n\nO conteúdo deve equilibrar profundidade analítica com clareza pedagógica.\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "name": "AgentSchemaResponse",
+              "schema": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"required\": [\"news\"],\n  \"properties\": {\n    \"news\": {\n      \"type\": \"array\",\n      \"minItems\": 1,\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"title\",\n          \"summary\",\n          \"investor_impact\",\n          \"educational_analysis\",\n          \"source\",\n          \"relevance_justification\",\n          \"thumbnail\"\n        ],\n        \"properties\": {\n          \"title\": {\n            \"type\": \"string\",\n            \"minLength\": 1\n          },\n          \"summary\": {\n            \"type\": \"string\",\n            \"minLength\": 1\n          },\n          \"investor_impact\": {\n            \"type\": \"string\",\n            \"minLength\": 1\n          },\n          \"educational_analysis\": {\n            \"type\": \"string\",\n            \"minLength\": 1\n          },\n          \"source\": {\n            \"type\": \"object\",\n            \"required\": [\"name\", \"url\"],\n            \"properties\": {\n              \"name\": {\n                \"type\": \"string\",\n                \"minLength\": 1\n              },\n              \"url\": {\n                \"type\": \"string\"\n              }\n            },\n            \"additionalProperties\": false\n          },\n          \"relevance_justification\": {\n            \"type\": \"string\",\n            \"minLength\": 1\n          },\n          \"thumbnail\": {\n            \"type\": \"string\",\n            \"minLength\": 1\n          }\n        },\n        \"additionalProperties\": false\n      }\n    }\n  },\n  \"additionalProperties\": false\n}\n"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -80,
+        -80
+      ],
+      "id": "314848a7-c442-4ff2-aac5-6ea2281c8758",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "DuSF2gXuF96PLtwk",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "google_news search in SerpApi",
+        "operation": "google_news",
+        "q": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Search_Query__q_', ``, 'string') }}",
+        "additionalFields": {
+          "gl": "br",
+          "hl": "pt-br"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApiTool",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        144
+      ],
+      "id": "0d510299-abde-41e6-9350-db05dc74dbb8",
+      "name": "Google_news search in SerpApi",
+      "credentials": {
+        "serpApi": {
+          "id": "qVUp0oflh7gzTEGR",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "economic_news",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.summary }}"
+            },
+            {
+              "fieldId": "investor_impact",
+              "fieldValue": "={{ $json.investor_impact }}"
+            },
+            {
+              "fieldId": "education_analysis",
+              "fieldValue": "={{ $json.educational_analysis }}"
+            },
+            {
+              "fieldId": "source_name",
+              "fieldValue": "={{ $json.source_name }}"
+            },
+            {
+              "fieldId": "source_url",
+              "fieldValue": "={{ $json.source_url }}"
+            },
+            {
+              "fieldId": "relevance_justification",
+              "fieldValue": "={{ $json.relevance_justification }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        496,
+        32
+      ],
+      "id": "caf9d750-021a-47bc-9892-ee226c764ffe",
+      "name": "Update a row",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "E8wNp87T3vwtHtuB",
+          "name": "1572 - Organization"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://trzrictfwfsmlpkbazqi.supabase.co/functions/v1/ingest-economic-data",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16,
+        -272
+      ],
+      "id": "a95bf3b3-5fd7-48f7-beab-e79b0f3c5db4",
+      "name": "Supabase ingest-economic-data",
+      "credentials": {
+        "supabaseApi": {
+          "id": "E8wNp87T3vwtHtuB",
+          "name": "1572 - Organization"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "subscribers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "active",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        352
+      ],
+      "id": "e6a7b220-a4a0-4e3a-a6ee-d6fe7afe6429",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "0fOEEhPrht0NsL2w",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        -496
+      ],
+      "id": "8dfb0415-b16d-4b7d-af09-239258b7dcce",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "economic_indicators",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "reference_date",
+              "condition": "lte",
+              "keyValue": "={{ $today.format('yyyy-MM-dd') }}"
+            },
+            {
+              "keyName": "reference_date",
+              "condition": "gt",
+              "keyValue": "=\n{{ $today.minus(1, 'year').format('yyyy-MM-dd') }}"
+            }
+          ]
+        }
+      },
+      "id": "28fd0d4d-7f40-47c5-8398-d4494239d621",
+      "name": "Get many rows with sort",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -496
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "E8wNp87T3vwtHtuB",
+          "name": "1572 - Organization"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "Você é um analista de dados econômicos especializado em análise descritiva baseada exclusivamente nos dados fornecidos.\n\nREGRAS OBRIGATÓRIAS:\n\n1. Analise cada indicador de forma TOTALMENTE INDEPENDENTE.\n2. É PROIBIDO:\n   - Comparar indicadores entre si.\n   - Criar indicadores combinados (ex: \"SELIC x IPCA\").\n   - Criar seções como \"Riscos\", \"Cenário geral\", \"Macroeconomia\".\n   - Inferir causalidade entre indicadores.\n3. NÃO utilize conhecimento externo.\n4. NÃO invente dados.\n5. Utilize apenas os valores e datas presentes no input.\n6. Caso um indicador tenha poucos dados (ex: apenas 1 ponto), apenas descreva o valor e a limitação analítica.\n7. Identifique apenas:\n   - Tendência (alta, queda, estabilidade)\n   - Mudança relevante de patamar\n   - Volatilidade\n   - Picos ou mínimos\n8. Não faça projeções futuras.\n9. A resposta deve ser JSON puro.\n10. Não inclua explicações fora do JSON.\n\nFORMATO DE SAÍDA OBRIGATÓRIO:\n\n{\n  \"insights\": [\n    {\n      \"indicator\": \"nome_do_indicador\",\n      \"title\": \"Título curto e objetivo\",\n      \"description\": \"Análise objetiva baseada somente nos dados fornecidos.\",\n      \"severity\": \"info | warning | success\",\n      \"insight_type\": \"trend | volatility | level | change\",\n      \"reference_date\": \"data mais recente considerada\"\n    }\n  ]\n}\n"
+            },
+            {
+              "content": "=Analise os indicadores abaixo.\n\nCada indicador contém uma lista de objetos com:\n- value (valor numérico)\n- reference_date (YYYY-MM-DD)\n\nRegras:\n- Analise cada indicador separadamente.\n- Não compare indicadores.\n- Não crie indicadores sintéticos.\n- Baseie-se apenas nos dados fornecidos.\n- Retorne apenas o JSON no formato especificado.\n\nDados:\n {{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "name": "insightIndicatorsOutput",
+              "schema": "{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"title\": \"MacroeconomicInsights\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"insights\": {\n      \"type\": \"array\",\n      \"description\": \"Lista de insights separados por indicador\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"indicator\": {\n            \"type\": \"string\",\n            \"description\": \"Nome do indicador econômico (ex: SELIC, IPCA)\"\n          },\n          \"title\": {\n            \"type\": \"string\",\n            \"description\": \"Título curto do insight\"\n          },\n          \"description\": {\n            \"type\": \"string\",\n            \"description\": \"Explicação detalhada do insight\"\n          },\n          \"severity\": {\n            \"type\": \"string\",\n            \"enum\": [\"success\", \"info\", \"warning\"],\n            \"description\": \"Nível de criticidade do insight\"\n          },\n          \"insight_type\": {\n            \"type\": \"string\",\n            \"enum\": [\"trend\", \"correlation\", \"alert\"],\n            \"description\": \"Tipo do insight gerado\"\n          },\n          \"reference_date\": {\n            \"type\": \"string\",\n            \"format\": \"date\",\n            \"pattern\": \"^\\\\d{4}-\\\\d{2}-\\\\d{2}$\",\n            \"description\": \"Data de referência do insight no formato yyyy-mm-dd\"\n          }\n        },\n        \"required\": [\n          \"indicator\",\n          \"title\",\n          \"description\",\n          \"severity\",\n          \"insight_type\",\n          \"reference_date\"\n        ],\n        \"additionalProperties\": false\n      }\n    }\n  },\n  \"required\": [\"insights\"],\n  \"additionalProperties\": false\n}\n"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        -496
+      ],
+      "id": "5617239d-fab1-46a9-8f3f-56d72702bb0a",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "DuSF2gXuF96PLtwk",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const AiInsights = $input.all()[0].json.output[0].content[0].text.insights;\nconst transformedInsights = AiInsights.map(item => {\n  return {\n    indicator: item.indicator,\n    title: item.title,\n    description: item.description,\n    severity: item.severity,\n    insight_type: item.insight_type,\n    reference_date: item.reference_date,\n  };\n});\n\nreturn transformedInsights;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        -496
+      ],
+      "id": "705f7dcd-4628-4718-abab-dffd562918e0",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "economic_insights",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "indicator",
+              "condition": "eq",
+              "keyValue": "={{ $json.indicator }}"
+            }
+          ]
+        },
+        "dataToSend": "autoMapInputData"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        944,
+        -496
+      ],
+      "id": "30ac47f0-e620-4bd8-aa85-71ce9dbfdb43",
+      "name": "Update a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "E8wNp87T3vwtHtuB",
+          "name": "1572 - Organization"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = {};\n\nfor (const json_item of $input.all()) {\n  const item = json_item.json;\n\n  if (!result[item.indicator]) {\n    result[item.indicator] = [];\n  }\n\n  result[item.indicator].push({\n    value: item.value,\n    reference_date: item.reference_date\n  });\n}\n\nreturn [result];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        -496
+      ],
+      "id": "2f885344-0b2a-4cd7-a2ed-d26e27a1d941",
+      "name": "Code in JavaScript3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase ingest-economic-data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_news search in SerpApi": {
+      "ai_tool": [
+        [
+          {
+            "node": "Message a model",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Get many rows with sort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows with sort": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "bb3fa977-bd49-45a6-be61-919c51fd46e5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2ce265d4a0e273a843d5f6c7f685895690b26493ce7dfd75492ec6046ca5416d"
+  },
+  "id": "U2r7uMSftuTF2GsIkSL_f",
+  "tags": []
+}
