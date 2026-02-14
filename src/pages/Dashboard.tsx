@@ -9,7 +9,7 @@ import { useIndicators, IndicatorType } from '@/hooks/useIndicators';
 import { supabase } from '@/integrations/supabase/client';
 import { useAIInsights } from '@/hooks/useAIInsights';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-import { CalendarDays, RefreshCw, Loader2 } from 'lucide-react';
+import { CalendarDays, RefreshCw, Loader2, SlidersHorizontal, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
@@ -74,7 +74,7 @@ export default function Dashboard() {
   const [visibleIndicators, setVisibleIndicators] = useState<string[]>([]);
   const { data: rawIndicators, isLoading, refetch, isFetching } = useIndicators('24M');
   const queryClient = useQueryClient();
-  const { selectedIndicators } = useUserPreferences();
+  const { selectedIndicators, toggleIndicator, selectAll, allIndicators } = useUserPreferences();
 
   const today = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
@@ -234,6 +234,39 @@ export default function Dashboard() {
             </Button>
           </div>
         </motion.div>
+
+        {/* Indicator Filter Chips */}
+        {!isLoading && processedIndicators.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground mr-1">
+              <SlidersHorizontal className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtrar:</span>
+            </div>
+            <Button
+              variant={selectedIndicators.length === allIndicators.length ? "default" : "outline"}
+              size="sm"
+              onClick={selectAll}
+              className="h-8 text-xs px-3 rounded-full"
+            >
+              Todos
+            </Button>
+            {processedIndicators.map((ind) => {
+              const isSelected = selectedIndicators.includes(ind.id as IndicatorType);
+              return (
+                <Button
+                  key={ind.id}
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleIndicator(ind.id as IndicatorType)}
+                  className="h-8 text-xs px-3 rounded-full gap-1.5"
+                >
+                  {isSelected && <Check className="h-3 w-3" />}
+                  {ind.shortName}
+                </Button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Indicator Cards Grid */}
         {isLoading ? (
