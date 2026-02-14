@@ -258,23 +258,19 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Charts Section */}
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-3">
-          <div className="lg:col-span-2 min-w-0">
-            <HistoricalChart 
-              indicators={processedIndicators}
-              onVisibleIndicatorsChange={handleVisibleIndicatorsChange}
-            />
-          </div>
-          <div className="min-w-0">
-            <InsightsPanel 
-              insights={aiInsights || []} 
-              isLoading={isLoadingInsights}
-              onRefresh={handleRefreshInsights}
-              isRefreshing={isFetchingInsights}
-            />
-          </div>
-        </div>
+        {/* Chart Section – full width */}
+        <HistoricalChart 
+          indicators={processedIndicators}
+          onVisibleIndicatorsChange={handleVisibleIndicatorsChange}
+        />
+
+        {/* Insights Section – full width below chart */}
+        <InsightsPanel 
+          insights={aiInsights || []} 
+          isLoading={isLoadingInsights}
+          onRefresh={handleRefreshInsights}
+          isRefreshing={isFetchingInsights}
+        />
 
         {/* Correlation Matrix */}
         <CorrelationMatrix indicators={processedIndicators.filter((ind) => selectedIndicators.includes(ind.id as IndicatorType))} />

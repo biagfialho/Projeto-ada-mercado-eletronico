@@ -305,7 +305,7 @@ export function HistoricalChart({ indicators, onVisibleIndicatorsChange }: Histo
                     backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
                   }}
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 8 }}
                   labelFormatter={value => {
